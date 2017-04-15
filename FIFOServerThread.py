@@ -9,12 +9,16 @@ class FIFOServerThread(threading.Thread):
         threading.Thread.__init__()
         self.chunk_size = chunk_size
         assert self.chunk_size <= 16 * 1024
+        self.write_fd = None
         if location:
             self.fifo = location
         else:
             self.fifo = tempfile.mktemp()
 
     def start(self):
+        """Create a thread listening to a FIFO.
+
+        For sending clients, this shall not be called."""
         os.mkfifo(self.fifo)
         threading.Thread.start()
 
@@ -31,3 +35,35 @@ class FIFOServerThread(threading.Thread):
         finally:
             os.close(fd)
 
+    def unpack(self, data_chunk):
+        command, args = ast.literal_eval(data_chunk)
+        return command, args
+
+    def process(self, data_chunk):
+        command, args = unpack(data_chunk)
+        self.call(command, args)
+
+    def call(self, command, args):
+        raise NotImplementedError("In base class")
+
+    def pack(self, command, args):
+        s = str((command, args,))
+        if len(s) > self.chunk_size:
+            raise IllegalArgumentException("Too big data chunk")
+        out = s + " " * (len(s) - self.chunk_size)
+        assert len(out) == self.chunk_size
+        return out
+
+    def send(self, command, args):
+        if not self.write_fd:
+            self.write_fd = os.open(self.fifo, os.O_WRONLY)
+        l = os.write(pack(command, args))
+        assert l == self.chunk_size
+
+    def close(self):
+        if self.fifo:
+            self.send("close", self.fifo)
+            self.fifo = None
+        if self.write_fd:
+            os.close(self.write_fd)
+            self.write_fd = None
