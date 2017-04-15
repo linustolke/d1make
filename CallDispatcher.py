@@ -1,3 +1,3 @@
 class CallDispatcher(object):
-    def call(command, args):
+    def call(self, command, args):
         getattr(self, "call_" + command)(*args)
