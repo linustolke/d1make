@@ -1,3 +1,4 @@
+import ast
 import os
 import tempfile
 import threading
@@ -6,7 +7,7 @@ import threading
 class FIFOServerThread(threading.Thread):
     """Base class for sending and receiving commands from a FIFO."""
     def __init__(self, chunk_size=1000, location=None):
-        threading.Thread.__init__()
+        threading.Thread.__init__(self)
         self.chunk_size = chunk_size
         assert self.chunk_size <= 16 * 1024
         self.write_fd = None
@@ -20,7 +21,7 @@ class FIFOServerThread(threading.Thread):
 
         For sending clients, this shall not be called."""
         os.mkfifo(self.fifo)
-        threading.Thread.start()
+        threading.Thread.start(self)
 
     def run(self):
         try:
@@ -31,17 +32,19 @@ class FIFOServerThread(threading.Thread):
                     break
                 if len(red) != self.chunk_size:
                     raise IllegalArgumentException("Garbage read")
-                self.process(red)
+                command, args = self.unpack(red)
+                if (command == "close"
+                        and len(args) == 1
+                        and args[0] == self.fifo):
+                    self.fifo = None
+                    break
+                self.call(command, args)
         finally:
             os.close(fd)
 
     def unpack(self, data_chunk):
         command, args = ast.literal_eval(data_chunk)
         return command, args
-
-    def process(self, data_chunk):
-        command, args = unpack(data_chunk)
-        self.call(command, args)
 
     def call(self, command, args):
         raise NotImplementedError("In base class")
@@ -50,20 +53,19 @@ class FIFOServerThread(threading.Thread):
         s = str((command, args,))
         if len(s) > self.chunk_size:
             raise IllegalArgumentException("Too big data chunk")
-        out = s + " " * (len(s) - self.chunk_size)
+        out = s + " " * (self.chunk_size - len(s))
         assert len(out) == self.chunk_size
         return out
 
     def send(self, command, args):
         if not self.write_fd:
             self.write_fd = os.open(self.fifo, os.O_WRONLY)
-        l = os.write(pack(command, args))
+        l = os.write(self.write_fd, self.pack(command, args))
         assert l == self.chunk_size
 
     def close(self):
-        if self.fifo:
-            self.send("close", self.fifo)
-            self.fifo = None
+        if self.fifo and os.path.exists(self.fifo):
+            self.send("close", (self.fifo,))
         if self.write_fd:
             os.close(self.write_fd)
             self.write_fd = None
