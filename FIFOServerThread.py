@@ -24,6 +24,7 @@ class FIFOServerThread(threading.Thread):
         threading.Thread.start(self)
 
     def run(self):
+        fifo = self.fifo
         try:
             fd = os.open(self.fifo, os.O_RDONLY)
             while True:
@@ -41,6 +42,7 @@ class FIFOServerThread(threading.Thread):
                 self.call(command, args)
         finally:
             os.close(fd)
+            os.remove(fifo)
 
     def unpack(self, data_chunk):
         command, args = ast.literal_eval(data_chunk)
