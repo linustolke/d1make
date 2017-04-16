@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 import threading
 import time
 
@@ -68,6 +69,7 @@ def main():
         left = sms.threads_left()
         load = os.getloadavg()
         print sms.fifo, "RUNNING", left, " ".join((str(l) for l in load))
+        sys.stdout.flush()
         time.sleep(10 + load[0])
 
 
