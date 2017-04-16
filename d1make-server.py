@@ -10,22 +10,29 @@ from CallDispatcher import CallDispatcher
 
 
 class ExecuteThread(threading.Thread):
-    def __init__(self, stdout_fifo, stderr_fifo, directory, command):
+    def __init__(self,
+                 stdout_fifo, stderr_fifo, exit_code_fifo,
+                 directory, command):
         threading.Thread.__init__(self)
         self.stdout_fifo = stdout_fifo
         self.stderr_fifo = stderr_fifo
+        self.exit_code_fifo = exit_code_fifo
         self.directory = directory
         self.command = command
 
     def run(self):
         stdout_fd = os.open(self.stdout_fifo, os.O_WRONLY)
         stderr_fd = os.open(self.stderr_fifo, os.O_WRONLY)
-        subprocess.Popen("cd " + self.directory + " && " + self.command,
-                         shell=True,
-                         stdout=stdout_fd,
-                         stderr=stderr_fd).communicate()
+        exit_code_fd = os.open(self.exit_code_fifo, os.O_WRONLY)
+        p = subprocess.Popen("cd " + self.directory + " && " + self.command,
+                             shell=True,
+                             stdout=stdout_fd,
+                             stderr=stderr_fd)
+        exit_code = p.wait()
         os.close(stdout_fd)
         os.close(stderr_fd)
+        os.write(exit_code_fd, str(exit_code) + "\n")
+        os.close(exit_code_fd)
 
 
 class ServerMakeStarter(CallDispatcher, FIFOServerThread):
@@ -33,8 +40,11 @@ class ServerMakeStarter(CallDispatcher, FIFOServerThread):
         FIFOServerThread.__init__(self)
         self.running_threads = set()
 
-    def call_compile(self, stdout_fifo, stderr_fifo, directory, command):
-        t = ExecuteThread(stdout_fifo, stderr_fifo, directory, command)
+    def call_compile(self,
+                     stdout_fifo, stderr_fifo, exit_code_fifo,
+                     directory, command):
+        t = ExecuteThread(stdout_fifo, stderr_fifo, exit_code_fifo,
+                          directory, command)
         t.start()
         self.running_threads.add(t)
 
