@@ -28,6 +28,7 @@ class ExecuteThread(threading.Thread):
                              shell=True,
                              stdout=stdout_fd,
                              stderr=stderr_fd)
+        p.communicate()
         exit_code = p.wait()
         os.close(stdout_fd)
         os.close(stderr_fd)

@@ -5,6 +5,7 @@ import select
 import sys
 import tempfile
 import time
+from subprocess import Popen
 
 from FIFOServerThread import FIFOServerThread
 from CallDispatcher import CallDispatcher
@@ -55,14 +56,18 @@ def run_command_locally(location, directory, command):
 
 
 class SSHThread(CallDispatcher, FIFOServerThread):
-    def __init__(location, directory, command):
-        FIFOServerThread.__init__()
+    def __init__(self, location, directory, command):
+        FIFOServerThread.__init__(self)
+        self.location = location
+        self.directory = directory
+        self.command = command
 
-    def call_use_host(host):
+    def call_use_host(self, host):
         p = Popen(["ssh", host,
                    __file__, "LOCAL", self.location, self.directory] + self.command)
         p.communicate()
-        self.exit_code = p.exit_code
+        self.exit_code = p.wait()
+        self.stop()
 
 
 def main():
@@ -80,9 +85,9 @@ def main():
         master = FIFOServerThread(location=sshlocation)
         response = SSHThread(location, directory, command)
         response.start()
-
+        master.send("host", (response.fifo,))
         response.join()
-    sys.exit(response.exit_code)
+        sys.exit(response.exit_code)
 
             
 if __name__ == "__main__":
