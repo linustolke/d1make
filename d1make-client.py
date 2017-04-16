@@ -14,7 +14,7 @@ from CallDispatcher import CallDispatcher
 * FIFO location, where to get the ssh host,
   or "LOCAL" if already on the remote side of the ssh connection
   i.e. no new ssh connection to create.
-* FIFO location, on the host
+* FIFO location, on the host (ignored when not LOCAL)
 * Directory
 * Command.
 """
@@ -56,15 +56,15 @@ def run_command_locally(location, directory, command):
 
 
 class SSHThread(CallDispatcher, FIFOServerThread):
-    def __init__(self, location, directory, command):
+    def __init__(self, directory, command):
         FIFOServerThread.__init__(self)
-        self.location = location
         self.directory = directory
         self.command = command
 
-    def call_use_host(self, host):
+    def call_use_host(self, host, fifolocation):
         p = Popen(["ssh", host,
-                   __file__, "LOCAL", self.location, self.directory] + self.command)
+                   os.path.abspath(__file__), "LOCAL",
+                   fifolocation, self.directory] + self.command)
         p.communicate()
         self.exit_code = p.wait()
         self.stop()
@@ -83,7 +83,7 @@ def main():
         sys.exit(exit_code)
     else:
         master = FIFOServerThread(location=sshlocation)
-        response = SSHThread(location, directory, command)
+        response = SSHThread(directory, command)
         response.start()
         master.send("host", (response.fifo,))
         response.join()
