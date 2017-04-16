@@ -2,6 +2,7 @@
 
 import os
 import pexpect
+import random
 import select
 import sys
 import tempfile
@@ -16,13 +17,16 @@ class HostInfo(object):
     def __init__(self, host, fifo, count, min1, min5, min15):
         self.host = host
         self.fifo = fifo
-        self.count = count
-        self.min1 = min1
-        self.min5 = min5
-        self.min15 = min15
+        self.count = int(count)
+        self.min1 = float(min1)
+        self.min5 = float(min5)
+        self.min15 = float(min15)
 
     def __str__(self):
         return self.host + "/" + self.fifo
+
+    def weight(self):
+        return 1 / (1 + self.count + self.min1 + self.min5 + self.min15)
 
 
 class SSHServerConnection(threading.Thread):
@@ -55,13 +59,12 @@ class SSHServerConnection(threading.Thread):
             p.terminate(force=True)
 
 
-
-
 class AnswerWithHost(CallDispatcher, FIFOServerThread):
     def __init__(self):
         FIFOServerThread.__init__(self)
         self.hardwired = "localhost"
         self.hosts = dict()
+        self.random = random.Random()
 
     def new_info(self, hostinfo):
         print "NEW INFO:", hostinfo
@@ -70,10 +73,20 @@ class AnswerWithHost(CallDispatcher, FIFOServerThread):
     def host_closed(self, host):
         self.hosts.pop(host)
 
+    def calculate_host(self):
+        while not self.hosts:
+            print "No hosts are available."
+            time.sleep(1)
+        weighted_array = list()
+        for host in self.hosts:
+            weighted_array.extend([host] * int(1000 * self.hosts[host].weight()))
+        return self.random.sample(weighted_array, 1)[0]
+
     def call_host(self, response_fifo):
-        print "Dispatching for", self.hardwired
+        host = self.calculate_host()
+        print "Dispatching for", host
         r = FIFOServerThread(location=response_fifo)
-        r.send("use_host", (self.hardwired,))
+        r.send("use_host", (host, self.hosts[host].fifo,))
         r.close()
         print "Dispatched."
 
