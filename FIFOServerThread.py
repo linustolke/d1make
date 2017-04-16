@@ -2,6 +2,7 @@ import ast
 import os
 import tempfile
 import threading
+import traceback
 
 
 class FIFOServerThread(threading.Thread):
@@ -21,28 +22,37 @@ class FIFOServerThread(threading.Thread):
 
         For sending clients, this shall not be called."""
         os.mkfifo(self.fifo)
+        self.setDaemon(True)
         threading.Thread.start(self)
 
     def run(self):
         fifo = self.fifo
         try:
-            fd = os.open(self.fifo, os.O_RDONLY)
-            while True:
-                red = os.read(fd, self.chunk_size)
-                if len(red) == 0:
-                    break
-                if len(red) != self.chunk_size:
-                    raise IllegalArgumentException("Garbage read")
-                command, args = self.unpack(red)
-                if (command == "close"
-                        and len(args) == 1
-                        and args[0] == self.fifo):
-                    self.fifo = None
-                    break
-                self.call(command, args)
+            while self.fifo:
+                fd = os.open(self.fifo, os.O_RDONLY)
+                while True:
+                    red = os.read(fd, self.chunk_size)
+                    if len(red) == 0:
+                        break
+                    if len(red) != self.chunk_size:
+                        raise IllegalArgumentException("Garbage read")
+                    command, args = self.unpack(red)
+                    if (command == "close"
+                            and len(args) == 1
+                            and args[0] == self.fifo):
+                        self.fifo = None
+                        break
+                    self.call(command, args)
+                os.close(fd)
+        except:
+            traceback.print_exc()
         finally:
-            os.close(fd)
             os.remove(fifo)
+
+    def stop(self):
+        """Stop the server."""
+        if self.fifo and os.path.exists(self.fifo):
+            self.send("close", (self.fifo,))
 
     def unpack(self, data_chunk):
         command, args = ast.literal_eval(data_chunk)
@@ -66,8 +76,7 @@ class FIFOServerThread(threading.Thread):
         assert l == self.chunk_size
 
     def close(self):
-        if self.fifo and os.path.exists(self.fifo):
-            self.send("close", (self.fifo,))
+        """Close the client."""
         if self.write_fd:
             os.close(self.write_fd)
             self.write_fd = None

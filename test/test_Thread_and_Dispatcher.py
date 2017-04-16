@@ -29,7 +29,7 @@ class test_Thread_and_Dispatcher(unittest.TestCase):
         t.start()
         t.send("zero", [])
         time.sleep(0.2)
-        t.close()
+        t.stop()
         self.assertTrue(t.zero)
 
     def test_call_one(self):
@@ -37,7 +37,7 @@ class test_Thread_and_Dispatcher(unittest.TestCase):
         t.start()
         t.send("one", ("uno",))
         time.sleep(0.2)
-        t.close()
+        t.stop()
         self.assertTrue(t.one)
         self.assertEqual(t.arg1, "uno")
 
@@ -46,7 +46,7 @@ class test_Thread_and_Dispatcher(unittest.TestCase):
         t.start()
         t.send("two", ("uno", 2,))
         time.sleep(0.2)
-        t.close()
+        t.stop()
         self.assertTrue(t.two)
         self.assertEqual(t.arg1, "uno")
         self.assertEqual(t.arg2, 2)

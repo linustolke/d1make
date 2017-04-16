@@ -11,12 +11,12 @@ class CommandMock(FIFOServerThread):
 
 class test_FIFOServerThread(unittest.TestCase):
     def test_open_and_close(self):
-        FIFOServerThread().close()
+        FIFOServerThread().stop()
 
     def test_open_start_and_close(self):
         t = FIFOServerThread()
         t.start()
-        t.close()
+        t.stop()
 
     def test_fail_when_not_started(self):
         try:
@@ -32,7 +32,7 @@ class test_FIFOServerThread(unittest.TestCase):
         time.sleep(0.2)
         self.assertEqual(t.command, "gupta")
         self.assertEqual(t.args, ("trade", 17,))
-        t.close()
+        t.stop()
 
 
 if __name__ == "__main__":
