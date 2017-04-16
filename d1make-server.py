@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import os
 import subprocess
 import threading
 import time
@@ -9,7 +10,7 @@ from CallDispatcher import CallDispatcher
 
 
 class ExecuteThread(threading.Thread):
-    def init(self, stdout_fifo, stderr_fifo, directory, command):
+    def __init__(self, stdout_fifo, stderr_fifo, directory, command):
         threading.Thread.__init__(self)
         self.stdout_fifo = stdout_fifo
         self.stderr_fifo = stderr_fifo
@@ -33,13 +34,16 @@ class ServerMakeStarter(CallDispatcher, FIFOServerThread):
         self.running_threads = set()
 
     def call_compile(self, stdout_fifo, stderr_fifo, directory, command):
-        t = ExecuteThread(stdout_fifo, stderr_fifo, directory, command).start()
+        t = ExecuteThread(stdout_fifo, stderr_fifo, directory, command)
+        t.start()
         self.running_threads.add(t)
 
     def purge_finished(self):
-        for t in self.running_threads:
-            if not t.isAlive():
-                self.running_threads.remove(t)
+        ts = self.running_threads
+        self.running_threads = set()
+        for t in ts:
+            if t.isAlive():
+                self.running_threads.add(t)
 
     def threads_left(self):
         self.purge_finished()
@@ -48,13 +52,12 @@ class ServerMakeStarter(CallDispatcher, FIFOServerThread):
 
 def main():
     sms = ServerMakeStarter()
-    try:
-        sms.start()
-        while True:
-            print sms.fifo, "RUNNING", sms.threads_left()
-            time.sleep(10)
-    finally:
-        sms.close()
+    sms.start()
+    while True:
+        left = sms.threads_left()
+        load = os.getloadavg()
+        print sms.fifo, "RUNNING", left, " ".join((str(l) for l in load))
+        time.sleep(10 + load[0])
 
 
 if __name__ == "__main__":
