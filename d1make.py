@@ -3,12 +3,14 @@
 import os
 import pexpect
 import random
+import re
 import select
 import sys
 import tempfile
 import threading
 import time
 
+from subprocess import Popen, PIPE
 from FIFOServerThread import FIFOServerThread, FIFOClient
 from CallDispatcher import CallDispatcher
 
@@ -103,12 +105,12 @@ def main():
         hosts[host] = ssc
         ssc.start()
     a.start()
-    p = Popen(["make", "-f", "-", sys.args[1:]], stdin=PIPE)
+    p = Popen(["make", "-f", "-"] + sys.argv[1:], stdin=PIPE)
     makefile = open("makefile", "r").read()
     client_program = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                   "d1make-client.py")
-    new_makefile = re.subn(r"\(\n\t.* \)\(make\|$(MAKE)\|$(sub-make)\) ",
-                           r"\1" + client_program + " " + a.fifo + " "
+    new_makefile = re.subn(r"(\n\t.* )(make|\$\(MAKE\)|\$\(sub-make\)) ",
+                           r"\1" + client_program + " " + a.fifo + " make "
                            + os.getenv("D1MAKE_CLIENT_MAKEARGS", "") + " ",
                            makefile)[0]
     print new_makefile
