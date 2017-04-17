@@ -65,13 +65,15 @@ class ServerMakeStarter(CallDispatcher, FIFOServerThread):
 def main():
     sms = ServerMakeStarter()
     sms.start()
-    while True:
-        left = sms.threads_left()
-        load = os.getloadavg()
-        print sms.fifo, "RUNNING", left, " ".join((str(l) for l in load))
-        sys.stdout.flush()
-        time.sleep(10 + load[0])
-
+    try:
+        while True:
+            left = sms.threads_left()
+            load = os.getloadavg()
+            print sms.fifo, "RUNNING", left, " ".join((str(l) for l in load))
+            sys.stdout.flush()
+            time.sleep(10 + load[0])
+    finally:
+        sms.stop()
 
 if __name__ == "__main__":
     main()

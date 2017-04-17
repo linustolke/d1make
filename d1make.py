@@ -25,6 +25,9 @@ class HostInfo(object):
     def __str__(self):
         return self.host + "/" + self.fifo
 
+    def add_one(self):
+        self.count = self.count + 1
+
     def weight(self):
         return 1 / (1 + self.count + self.min1 + self.min5 + self.min15)
 
@@ -80,6 +83,7 @@ class AnswerWithHost(CallDispatcher, FIFOServerThread):
         weighted_array = list()
         for host in self.hosts:
             weighted_array.extend([host] * int(1000 * self.hosts[host].weight()))
+        self.hosts[host].add_one()
         return self.random.sample(weighted_array, 1)[0]
 
     def call_host(self, response_fifo):
@@ -101,8 +105,10 @@ def main():
         ssc.start()
     a.start()
     print a.fifo
-    time.sleep(100)
-    a.stop()
+    try:
+        time.sleep(20)
+    finally:
+        a.stop()
 
 
 if __name__ == '__main__':

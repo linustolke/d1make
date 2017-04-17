@@ -2,14 +2,6 @@
 
 import os
 import select
-import sys
-import tempfile
-import time
-from subprocess import Popen
-
-from FIFOServerThread import FIFOServerThread
-from CallDispatcher import CallDispatcher
-
 """The script is started with the following parameters:
 * FIFO location, where to get the ssh host,
   or "LOCAL" if already on the remote side of the ssh connection
@@ -18,6 +10,14 @@ from CallDispatcher import CallDispatcher
 * Directory
 * Command.
 """
+
+import sys
+import tempfile
+import time
+from subprocess import Popen, PIPE
+
+from FIFOServerThread import FIFOServerThread
+from CallDispatcher import CallDispatcher
 
 def run_command_locally(location, directory, command):
     global exit_code
@@ -62,12 +62,13 @@ class SSHThread(CallDispatcher, FIFOServerThread):
         self.command = command
 
     def call_use_host(self, host, fifolocation):
+        self.stop()
         p = Popen(["ssh", host,
                    os.path.abspath(__file__), "LOCAL",
-                   fifolocation, self.directory] + self.command)
+                   fifolocation, self.directory] + self.command,
+                  stdin=PIPE)
         p.communicate()
         self.exit_code = p.wait()
-        self.stop()
 
 
 def main():
