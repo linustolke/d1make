@@ -9,7 +9,7 @@ import tempfile
 import threading
 import time
 
-from FIFOServerThread import FIFOServerThread
+from FIFOServerThread import FIFOServerThread, FIFOClient
 from CallDispatcher import CallDispatcher
 
 
@@ -23,7 +23,7 @@ class HostInfo(object):
         self.min15 = float(min15)
 
     def __str__(self):
-        return self.host + "/" + self.fifo
+        return self.host + " " + self.fifo + " " + str(self.count)
 
     def add_one(self):
         self.count = self.count + 1
@@ -84,15 +84,14 @@ class AnswerWithHost(CallDispatcher, FIFOServerThread):
         for host in self.hosts:
             weighted_array.extend([host] * int(1000 * self.hosts[host].weight()))
         self.hosts[host].add_one()
-        return self.random.sample(weighted_array, 1)[0]
+        return self.hosts[self.random.sample(weighted_array, 1)[0]]
 
     def call_host(self, response_fifo):
-        host = self.calculate_host()
-        print "Dispatching for", host
-        r = FIFOServerThread(location=response_fifo)
-        r.send("use_host", (host, self.hosts[host].fifo,))
+        hostinfo = self.calculate_host()
+        print "DISPATCH:", hostinfo
+        r = FIFOClient(location=response_fifo)
+        r.send("use_host", (hostinfo.host, hostinfo.fifo,))
         r.close()
-        print "Dispatched."
 
 
 def main():
@@ -105,10 +104,8 @@ def main():
         ssc.start()
     a.start()
     print a.fifo
-    try:
-        time.sleep(20)
-    finally:
-        a.stop()
+    time.sleep(100)
+    a.stop()
 
 
 if __name__ == '__main__':

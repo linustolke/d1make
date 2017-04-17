@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from FIFOServerThread import FIFOServerThread
+from FIFOServerThread import FIFOServerThread, FIFOClient
 
 
 class CommandMock(FIFOServerThread):
@@ -20,7 +20,7 @@ class test_FIFOServerThread(unittest.TestCase):
 
     def test_fail_when_not_started(self):
         try:
-            FIFOServerThread().send("command", [])
+            FIFOClient("/tmp/file that does not exist").send("command", [])
             self.fail("Should have failed")
         except OSError:
             pass
@@ -28,7 +28,7 @@ class test_FIFOServerThread(unittest.TestCase):
     def test_receive_command(self):
         t = CommandMock()
         t.start()
-        t.send("gupta", ("trade", 17,))
+        t.get_client().send("gupta", ("trade", 17,))
         time.sleep(0.2)
         self.assertEqual(t.command, "gupta")
         self.assertEqual(t.args, ("trade", 17,))

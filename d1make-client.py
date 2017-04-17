@@ -16,8 +16,9 @@ import tempfile
 import time
 from subprocess import Popen, PIPE
 
-from FIFOServerThread import FIFOServerThread
+from FIFOServerThread import FIFOServerThread, FIFOClient
 from CallDispatcher import CallDispatcher
+
 
 def run_command_locally(location, directory, command):
     global exit_code
@@ -31,13 +32,15 @@ def run_command_locally(location, directory, command):
     n3 = tempfile.mktemp()
     os.mkfifo(n3)
 
-    FIFOServerThread(location=location).send("compile",
-                                             (n1, n2, n3, directory, " ".join(command),))
+    c = FIFOClient(location=location)
+    c.send("compile", (n1, n2, n3, directory, " ".join(command),))
 
     rl = dict()
     rl[os.open(n1, os.O_RDONLY)] = sys.stdout
     rl[os.open(n2, os.O_RDONLY)] = sys.stderr
     rl[os.open(n3, os.O_RDONLY)] = "EXIT_CODE"
+
+    c.close()
 
     while rl:
         s = select.select(list(rl), [], [])
@@ -53,6 +56,7 @@ def run_command_locally(location, directory, command):
                 rl[r].write(red)
     os.remove(n1)
     os.remove(n2)
+    os.remove(n3)
 
 
 class SSHThread(CallDispatcher, FIFOServerThread):
@@ -62,13 +66,13 @@ class SSHThread(CallDispatcher, FIFOServerThread):
         self.command = command
 
     def call_use_host(self, host, fifolocation):
-        self.stop()
         p = Popen(["ssh", host,
                    os.path.abspath(__file__), "LOCAL",
                    fifolocation, self.directory] + self.command,
                   stdin=PIPE)
         p.communicate()
         self.exit_code = p.wait()
+        self.send_close()
 
 
 def main():
@@ -83,7 +87,7 @@ def main():
         run_command_locally(location, directory, command)
         sys.exit(exit_code)
     else:
-        master = FIFOServerThread(location=sshlocation)
+        master = FIFOClient(location=sshlocation)
         response = SSHThread(directory, command)
         response.start()
         master.send("host", (response.fifo,))

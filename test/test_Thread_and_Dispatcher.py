@@ -27,7 +27,7 @@ class test_Thread_and_Dispatcher(unittest.TestCase):
     def test_call_zero(self):
         t = ThreadAndDispatcherMock()
         t.start()
-        t.send("zero", [])
+        t.get_client().send("zero", [])
         time.sleep(0.2)
         t.stop()
         self.assertTrue(t.zero)
@@ -35,7 +35,7 @@ class test_Thread_and_Dispatcher(unittest.TestCase):
     def test_call_one(self):
         t = ThreadAndDispatcherMock()
         t.start()
-        t.send("one", ("uno",))
+        t.get_client().send("one", ("uno",))
         time.sleep(0.2)
         t.stop()
         self.assertTrue(t.one)
@@ -44,7 +44,7 @@ class test_Thread_and_Dispatcher(unittest.TestCase):
     def test_call_two(self):
         t = ThreadAndDispatcherMock()
         t.start()
-        t.send("two", ("uno", 2,))
+        t.get_client().send("two", ("uno", 2,))
         time.sleep(0.2)
         t.stop()
         self.assertTrue(t.two)

@@ -5,17 +5,15 @@ import threading
 import traceback
 
 
+CHUNK_SIZE = 1000
+
 class FIFOServerThread(threading.Thread):
     """Base class for sending and receiving commands from a FIFO."""
-    def __init__(self, chunk_size=1000, location=None):
+    def __init__(self, chunk_size=CHUNK_SIZE):
         threading.Thread.__init__(self)
         self.chunk_size = chunk_size
         assert self.chunk_size <= 16 * 1024
-        self.write_fd = None
-        if location:
-            self.fifo = location
-        else:
-            self.fifo = tempfile.mktemp()
+        self.fifo = tempfile.mktemp()
 
     def start(self):
         """Create a thread listening to a FIFO.
@@ -49,14 +47,29 @@ class FIFOServerThread(threading.Thread):
         finally:
             os.remove(fifo)
 
+    def get_client(self):
+        return FIFOClient(self.fifo, chunk_size=self.chunk_size)
+
+    def send_close(self):
+        self.get_client().send("close", (self.fifo,))
+
     def stop(self):
         """Stop the server."""
         if self.fifo and os.path.exists(self.fifo):
-            self.send("close", (self.fifo,))
+            self.send_close()
+        if self.isAlive():
+            self.join()
 
     def unpack(self, data_chunk):
         command, args = ast.literal_eval(data_chunk)
         return command, args
+
+
+class FIFOClient(object):
+    def __init__(self, location, chunk_size=CHUNK_SIZE):
+        self.fifo = location
+        self.chunk_size = chunk_size
+        self.write_fd = None
 
     def call(self, command, args):
         raise NotImplementedError("In base class")
