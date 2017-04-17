@@ -103,8 +103,16 @@ def main():
         hosts[host] = ssc
         ssc.start()
     a.start()
-    print a.fifo
-    time.sleep(100)
+    p = Popen(["make", "-f", "-", sys.args[1:]], stdin=PIPE)
+    makefile = open("makefile", "r").read()
+    client_program = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  "d1make-client.py")
+    new_makefile = re.subn(r"\(\n\t.* \)\(make\|$(MAKE)\|$(sub-make)\) ",
+                           r"\1" + client_program + " " + a.fifo + " "
+                           + os.getenv("D1MAKE_CLIENT_MAKEARGS", "") + " ",
+                           makefile)[0]
+    print new_makefile
+    p.communicate(input=new_makefile)
     a.stop()
 
 
