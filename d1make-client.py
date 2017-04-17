@@ -1,16 +1,20 @@
 #!/usr/bin/env python
 
-import os
-import select
-"""The script is started with the following parameters:
+"""The script is started either as a replacement for make (before ssh)
+or as a remote client that relays the work (after ssh).
+
+As the first, the parameters are:
 * FIFO location, where to get the ssh host,
-  or "LOCAL" if already on the remote side of the ssh connection
-  i.e. no new ssh connection to create.
-* FIFO location, on the host (ignored when not LOCAL)
+
+As the second, the parameters are:
+* "--remote"
+* FIFO location, to contact the remote server
 * Directory
 * Command.
 """
 
+import os
+import select
 import sys
 import tempfile
 import time
@@ -67,7 +71,7 @@ class SSHThread(CallDispatcher, FIFOServerThread):
 
     def call_use_host(self, host, fifolocation):
         p = Popen(["ssh", host,
-                   os.path.abspath(__file__), "LOCAL",
+                   os.path.abspath(__file__), "--remote",
                    fifolocation, self.directory] + self.command,
                   stdin=PIPE)
         p.communicate()
@@ -78,17 +82,12 @@ class SSHThread(CallDispatcher, FIFOServerThread):
 def main():
     global exit_code
 
-    sshlocation = sys.argv[1]
-    location = sys.argv[2]
-    directory = sys.argv[3]
-    command = sys.argv[4:]
-
-    if sshlocation == "LOCAL":
-        run_command_locally(location, directory, command)
+    if sys.argv[1] == "--remote":
+        run_command_locally(sys.argv[2], sys.argv[3], sys.argv[4:])
         sys.exit(exit_code)
     else:
-        master = FIFOClient(location=sshlocation)
-        response = SSHThread(directory, command)
+        master = FIFOClient(location=sys.argv[1])
+        response = SSHThread(os.getcwd(), sys.argv[2:])
         response.start()
         master.send("host", (response.fifo,))
         response.join()
