@@ -35,14 +35,16 @@ class HostInfo(object):
 
 
 class SSHServerConnection(threading.Thread):
-    def __init__(self, host, register):
+    def __init__(self, host, register, ssh_ctl_path):
         threading.Thread.__init__(self)
         self.host = host
         self.register = register
+        self.ssh_ctl_path = ssh_ctl_path
         self.setDaemon(True)
 
     def run(self):
-        p = pexpect.spawn("ssh " + self.host + " "
+        p = pexpect.spawn("ssh -M -S " + self.ssh_ctl_path + " "
+                          + self.host + " "
                           + os.getenv("D1MAKE_SERVER_SETUP", "") + " "
                           + os.path.join(
                               os.path.dirname(os.path.abspath(__file__)),
@@ -101,8 +103,9 @@ def main():
     hostnames = os.getenv("D1MAKE_HOSTS").split(" ")
     a = AnswerWithHost()
     hosts = dict()
+    ssh_ctl_path_root = tempfile.mktemp("-%h", "ssh_ctl_path-")
     for host in hostnames:
-        ssc = SSHServerConnection(host, a)
+        ssc = SSHServerConnection(host, a, ssh_ctl_path_root)
         hosts[host] = ssc
         ssc.start()
     a.start()
@@ -111,7 +114,10 @@ def main():
     client_program = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                   "d1make-client.py")
     new_makefile = re.subn(r"(\n\t.* )(make|\$\(MAKE\)|\$\(sub-make\)) ",
-                           r"\1" + client_program + " " + a.fifo + " make "
+                           r"\1" + client_program + " "
+                           + a.fifo + " "
+                           + ssh_ctl_path_root + " "
+                           + "make "
                            + os.getenv("D1MAKE_CLIENT_MAKEARGS", "") + " ",
                            makefile)[0]
     print new_makefile

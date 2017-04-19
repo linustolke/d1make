@@ -5,6 +5,8 @@ or as a remote client that relays the work (after ssh).
 
 As the first, the parameters are:
 * FIFO location, where to get the ssh host,
+* SSH Control Path
+* Command
 
 As the second, the parameters are:
 * "--remote"
@@ -64,13 +66,16 @@ def run_command_locally(location, directory, command):
 
 
 class SSHThread(CallDispatcher, FIFOServerThread):
-    def __init__(self, directory, command):
+    def __init__(self, directory, ssh_ctl_path, command):
         FIFOServerThread.__init__(self)
         self.directory = directory
+        self.ssh_ctl_path = ssh_ctl_path
         self.command = command
 
     def call_use_host(self, host, fifolocation):
-        p = Popen(["ssh", host,
+        p = Popen(["ssh",
+                   "-S", self.ssh_ctl_path,
+                   host,
                    os.path.abspath(__file__), "--remote",
                    fifolocation, self.directory] + self.command,
                   stdin=PIPE)
@@ -87,7 +92,7 @@ def main():
         sys.exit(exit_code)
     else:
         master = FIFOClient(location=sys.argv[1])
-        response = SSHThread(os.getcwd(), sys.argv[2:])
+        response = SSHThread(os.getcwd(), sys.argv[2], sys.argv[3:])
         response.start()
         master.send("host", (response.fifo,))
         response.join()
