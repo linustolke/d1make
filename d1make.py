@@ -43,6 +43,7 @@ class SSHServerConnection(threading.Thread):
 
     def run(self):
         p = pexpect.spawn("ssh " + self.host + " "
+                          + os.getenv("D1MAKE_SERVER_SETUP", "") + " "
                           + os.path.join(
                               os.path.dirname(os.path.abspath(__file__)),
                               "d1make-server.py"))
