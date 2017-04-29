@@ -123,6 +123,7 @@ def main():
     print new_makefile
     p.communicate(input=new_makefile)
     a.stop()
+    sys.exit(p.returncode)
 
 
 if __name__ == '__main__':
