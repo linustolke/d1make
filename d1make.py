@@ -48,7 +48,8 @@ class SSHServerConnection(threading.Thread):
                           + os.getenv("D1MAKE_SERVER_SETUP", "") + " "
                           + os.path.join(
                               os.path.dirname(os.path.abspath(__file__)),
-                              "d1make-server.py"))
+                              "d1make-server.py"),
+                          timeout=100)
         try:
             while True:
                 line = p.readline()

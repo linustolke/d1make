@@ -71,7 +71,7 @@ def main():
             load = os.getloadavg()
             print sms.fifo, "RUNNING", left, " ".join((str(l) for l in load))
             sys.stdout.flush()
-            time.sleep(10 + load[0])
+            time.sleep(min(10 + load[0], 60))
     finally:
         sms.stop()
 
