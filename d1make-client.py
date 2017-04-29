@@ -95,6 +95,7 @@ def main():
         response = SSHThread(os.getcwd(), sys.argv[2], sys.argv[3:])
         response.start()
         master.send("host", (response.fifo,))
+        master.close()
         response.join()
         sys.exit(response.exit_code)
 
