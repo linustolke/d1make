@@ -60,6 +60,7 @@ def run_command_locally(location, directory, command):
                 exit_code = int(red)
             else:
                 rl[r].write(red)
+                rl[r].flush()
     os.remove(n1)
     os.remove(n2)
     os.remove(n3)
