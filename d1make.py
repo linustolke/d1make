@@ -44,6 +44,7 @@ class SSHServerConnection(threading.Thread):
 
     def run(self):
         p = pexpect.spawn("ssh -M -S " + self.ssh_ctl_path + " "
+                          + os.getenv("D1MAKE_EXTRA_SSH_PARAMETERS", "") + " "
                           + self.host + " "
                           + os.getenv("D1MAKE_SERVER_SETUP", "") + " "
                           + os.path.join(
@@ -60,6 +61,7 @@ class SSHServerConnection(threading.Thread):
                 else:
                     break
         except ValueError:
+            print "Strange data from", self.host, line
             self.register.host_closed(self.host)
             p.terminate()
             for line in p.readlines():
@@ -104,7 +106,7 @@ def main():
     hostnames = os.getenv("D1MAKE_HOSTS").split(" ")
     a = AnswerWithHost()
     hosts = dict()
-    ssh_ctl_path_root = tempfile.mktemp("-%h", "ssh_ctl_path-")
+    ssh_ctl_path_root = tempfile.mktemp("-%n-%h", "ssh_ctl_path-")
     for host in hostnames:
         ssc = SSHServerConnection(host, a, ssh_ctl_path_root)
         hosts[host] = ssc

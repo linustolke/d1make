@@ -73,11 +73,17 @@ class SSHThread(CallDispatcher, FIFOServerThread):
         self.command = command
 
     def call_use_host(self, host, fifolocation):
-        p = Popen(["ssh",
-                   "-S", self.ssh_ctl_path,
-                   host,
-                   os.path.abspath(__file__), "--remote",
-                   fifolocation, self.directory] + self.command,
+        ssh_parameters = []
+        ssh_parameters.extend(["-S", self.ssh_ctl_path])
+        extra_parameters = os.getenv("D1MAKE_EXTRA_SSH_PARAMETERS", None)
+        if extra_parameters:
+            ssh_parameters.extend(extra_parameters.split(" "))
+        ssh_parameters.append(host)
+        ssh_parameters.append(os.path.abspath(__file__))
+        ssh_parameters.extend(["--remote", fifolocation, self.directory])
+        p = Popen(["ssh"]
+                  + ssh_parameters
+                  + self.command,
                   stdin=PIPE)
         p.communicate()
         self.exit_code = p.wait()
