@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import heapq
 import logging
 import os
 import random
@@ -24,15 +25,21 @@ class HostInfo(object):
         self.min1 = float(min1)
         self.min5 = float(min5)
         self.min15 = float(min15)
+        self.started = 0
 
     def __str__(self):
-        return self.host + " " + self.fifo + " " + str(self.count)
+        return (self.host + " " + self.fifo + " " 
+                + str(self.count + self.started))
 
     def add_one(self):
-        self.count = self.count + 1
+        self.started = self.started + 1
 
-    def weight(self):
-        return 1 / (1 + self.count + self.min1 + self.min5 + self.min15)
+    def value(self):
+        return (self.count + self.min1 + self.min5 + self.min15
+                + 4 * self.started)
+
+    def __lt__(self, other):
+        return self.value() < other.value()
 
 
 class SSHServerConnection(threading.Thread):
@@ -95,26 +102,48 @@ class SSHServerConnection(threading.Thread):
 class AnswerWithHost(CallDispatcher, FIFOServerThread):
     def __init__(self):
         FIFOServerThread.__init__(self)
-        self.hardwired = "localhost"
-        self.hosts = dict()
-        self.random = random.Random()
+        self.hosts = []
+        self.hosts_lock = threading.Lock()
 
     def new_info(self, hostinfo):
         logging.info("New info from " + str(hostinfo))
-        self.hosts[hostinfo.host] = hostinfo
+        self.hosts_lock.acquire()
+        try:
+            for i, info in enumerate(self.hosts):
+                if info.host == hostinfo.host:
+                    self.hosts[i] = hostinfo
+                    heapq.heapify(self.hosts)
+                    return
+            heapq.heappush(self.hosts, hostinfo)
+        finally:
+            self.hosts_lock.release()
 
     def host_closed(self, host):
-        self.hosts.pop(host, None)
-
+        self.hosts_lock.acquire()
+        try:
+            for i, info in enumerate(self.hosts):
+                if info.host == host:
+                    self.hosts[i] = self.hosts[-1]
+                    self.hosts.pop()
+                    heapq.heapify(self.hosts)
+                    break
+        finally:
+            self.hosts_lock.release()
+                
     def calculate_host(self):
-        while not self.hosts:
-            logging.info("No hosts are available.")
+        while True:
+            self.hosts_lock.acquire()
+            try:
+                if not self.hosts:
+                    logging.info("No hosts are available.")
+                else:
+                    info = heapq.heappop(self.hosts)
+                    info.add_one()
+                    heapq.heappush(self.hosts, info)
+                    return info
+            finally:
+                self.hosts_lock.release()
             time.sleep(1)
-        weighted_array = list()
-        for host in self.hosts:
-            weighted_array.extend([host] * int(1000 * self.hosts[host].weight()))
-        self.hosts[host].add_one()
-        return self.hosts[self.random.sample(weighted_array, 1)[0]]
 
     def call_host(self, response_fifo):
         hostinfo = self.calculate_host()
