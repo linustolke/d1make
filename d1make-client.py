@@ -27,8 +27,6 @@ from CallDispatcher import CallDispatcher
 
 
 def run_command_locally(location, directory, command):
-    global exit_code
-
     n1 = tempfile.mktemp()
     os.mkfifo(n1)
 
@@ -64,6 +62,7 @@ def run_command_locally(location, directory, command):
     os.remove(n1)
     os.remove(n2)
     os.remove(n3)
+    return exit_code
 
 
 class SSHThread(CallDispatcher, FIFOServerThread):
@@ -92,10 +91,8 @@ class SSHThread(CallDispatcher, FIFOServerThread):
 
 
 def main():
-    global exit_code
-
     if sys.argv[1] == "--remote":
-        run_command_locally(sys.argv[2], sys.argv[3], sys.argv[4:])
+        exit_code = run_command_locally(sys.argv[2], sys.argv[3], sys.argv[4:])
         sys.exit(exit_code)
     else:
         master = FIFOClient(location=sys.argv[1])
