@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
+import logging
 import os
-import pexpect
 import random
 import re
 import select
+import subprocess
 import sys
 import tempfile
 import threading
@@ -41,19 +42,32 @@ class SSHServerConnection(threading.Thread):
         self.register = register
         self.ssh_ctl_path = ssh_ctl_path
         self.setDaemon(True)
+        self.process = None
 
     def run(self):
-        p = pexpect.spawn("ssh -M -S " + self.ssh_ctl_path + " "
-                          + os.getenv("D1MAKE_EXTRA_SSH_PARAMETERS", "") + " "
-                          + self.host + " "
-                          + os.getenv("D1MAKE_SERVER_SETUP", "") + " "
-                          + os.path.join(
-                              os.path.dirname(os.path.abspath(__file__)),
-                              "d1make-server.py"),
-                          timeout=100)
+        command = [
+            "ssh",
+            "-M", "-S", self.ssh_ctl_path,
+        ]
+        extra_ssh_parameters = os.getenv("D1MAKE_EXTRA_SSH_PARAMETERS", None)
+        if extra_ssh_parameters:
+            command.extend(extra_ssh_parameters.split(" "))
+        command.append(self.host)
+        server_setup = os.getenv("D1MAKE_SERVER_SETUP", None)
+        if server_setup:
+            command.append(server_setup)
+        command.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "d1make-server.py"))
+        logging.debug("Starting command=" + " ".join(command))
+        self.process = subprocess.Popen(command,
+                                        stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE,
+        	                        stderr=subprocess.STDOUT)
         try:
+            self.process.stdin.close()
             while True:
-                line = p.readline()
+                line = self.process.stdout.readline().rstrip()
+                logging.debug("Read from " + self.host + ": " + line)
                 if line:
                     fifo, _, count, min1, min5, min15 = line.strip().split(" ")
                     self.register.new_info(HostInfo(self.host, fifo, count,
@@ -61,13 +75,21 @@ class SSHServerConnection(threading.Thread):
                 else:
                     break
         except ValueError:
-            print "Strange data from", self.host, line
+            logging.error("Strange data from " + self.host + ": " + line)
             self.register.host_closed(self.host)
-            p.terminate()
-            for line in p.readlines():
-                print "Strange data from", self.host, line
+            self.process.terminate()
+            for line in self.process.stdout.readlines():
+                logging.error("Strange data from " + self.host + ": " + line)
         finally:
-            p.terminate(force=True)
+            self.process.kill()
+        self.register.host_closed(self.host)
+
+    def close(self):
+        if self.process:
+            self.process.terminate()
+
+    def collect(self):
+        self.join(1)
 
 
 class AnswerWithHost(CallDispatcher, FIFOServerThread):
@@ -78,15 +100,15 @@ class AnswerWithHost(CallDispatcher, FIFOServerThread):
         self.random = random.Random()
 
     def new_info(self, hostinfo):
-        print "NEW INFO:", hostinfo
+        logging.info("New info from " + str(hostinfo))
         self.hosts[hostinfo.host] = hostinfo
 
     def host_closed(self, host):
-        self.hosts.pop(host)
+        self.hosts.pop(host, None)
 
     def calculate_host(self):
         while not self.hosts:
-            print "No hosts are available."
+            logging.info("No hosts are available.")
             time.sleep(1)
         weighted_array = list()
         for host in self.hosts:
@@ -96,13 +118,14 @@ class AnswerWithHost(CallDispatcher, FIFOServerThread):
 
     def call_host(self, response_fifo):
         hostinfo = self.calculate_host()
-        print "DISPATCH:", hostinfo
+        logging.info("Start job for " + str(hostinfo))
         r = FIFOClient(location=response_fifo)
         r.send("use_host", (hostinfo.host, hostinfo.fifo,))
         r.close()
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
     hostnames = os.getenv("D1MAKE_HOSTS").split(" ")
     a = AnswerWithHost()
     hosts = dict()
@@ -123,9 +146,12 @@ def main():
                            + "make "
                            + os.getenv("D1MAKE_CLIENT_MAKEARGS", "") + " ",
                            makefile)[0]
-    print new_makefile
     p.communicate(input=new_makefile)
     a.stop()
+    for ssc in hosts.values():
+        ssc.close()
+    for ssc in hosts.values():
+        ssc.collect()
     sys.exit(p.returncode)
 
 
