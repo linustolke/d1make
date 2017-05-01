@@ -1,12 +1,9 @@
 # d1make
 A simple make-based first level makefile distributed compilation.
 
-This requires:
-* 
-
 # How it works
 
-Processes ur run like this:
+Processes are run like this:
 
 ```
 d1make.py 
@@ -21,7 +18,7 @@ d1make.py
 
 An explained sequence of events
 1. `d1make.py` - Opens up sessions, configure PATH and other tool settings and starts `d1make-server.py`.
-1. This can be repeated several times, once for each host to use.
+1. This is repeated several times, once for each host to use.
 1. When `d1make-server.py` processes starts, it opens a FIFO to receive requests and reports that FIFO back together with load information.
 1. `d1make.py` reads the `makefile` and replaces locations where make is called with calls to `d1make-client.py`.
 1. `d1make.py` starts `make` on the modified `makefile`.
