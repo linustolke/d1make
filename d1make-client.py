@@ -19,7 +19,6 @@ import os
 import select
 import sys
 import tempfile
-import time
 from subprocess import Popen, PIPE
 
 from FIFOServerThread import FIFOServerThread, FIFOClient

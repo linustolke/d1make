@@ -3,16 +3,13 @@
 import heapq
 import logging
 import os
-import random
 import re
-import select
-import subprocess
 import sys
 import tempfile
 import threading
 import time
 
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, STDOUT
 from FIFOServerThread import FIFOServerThread, FIFOClient
 from CallDispatcher import CallDispatcher
 
@@ -66,10 +63,10 @@ class SSHServerConnection(threading.Thread):
         command.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "d1make-server.py"))
         logging.debug("Starting command=" + " ".join(command))
-        self.process = subprocess.Popen(command,
-                                        stdin=subprocess.PIPE,
-                                        stdout=subprocess.PIPE,
-        	                        stderr=subprocess.STDOUT)
+        self.process = Popen(command,
+                             stdin=PIPE,
+                             stdout=PIPE,
+        	             stderr=STDOUT)
         try:
             self.process.stdin.close()
             while True:
@@ -143,7 +140,7 @@ class AnswerWithHost(CallDispatcher, FIFOServerThread):
                     return info
             finally:
                 self.hosts_lock.release()
-            time.sleep(1)
+            time.sleep(0.2)
 
     def call_host(self, response_fifo):
         hostinfo = self.calculate_host()
