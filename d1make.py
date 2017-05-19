@@ -31,6 +31,9 @@ class HostInfo(object):
     def add_one(self):
         self.started = self.started + 1
 
+    def remove_one(self):
+        self.started = self.started - 1
+
     def value(self):
         return (self.count + self.min1 + self.min5 + self.min15
                 + 4 * self.started)
@@ -148,6 +151,17 @@ class AnswerWithHost(CallDispatcher, FIFOServerThread):
         r = FIFOClient(location=response_fifo)
         r.send("use_host", (hostinfo.host, hostinfo.fifo,))
         r.close()
+
+    def call_host_done(self, host):
+        self.hosts_lock.acquire()
+        try:
+            for info in self.hosts:
+                if info.host == host:
+                    info.remove_one()
+                    break
+            heapq.heapify(self.hosts)
+        finally:
+            self.hosts_lock.release()
 
 
 def main():

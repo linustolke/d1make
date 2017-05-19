@@ -72,6 +72,8 @@ class SSHThread(CallDispatcher, FIFOServerThread):
         self.command = command
 
     def call_use_host(self, host, fifolocation):
+        self.host = host
+
         ssh_parameters = []
         ssh_parameters.extend(["-S", self.ssh_ctl_path])
         extra_parameters = os.getenv("D1MAKE_EXTRA_SSH_PARAMETERS", None)
@@ -98,10 +100,11 @@ def main():
         response = SSHThread(os.getcwd(), sys.argv[2], sys.argv[3:])
         response.start()
         master.send("host", (response.fifo,))
-        master.close()
         response.join()
+        master.send("host_done", (response.host,))
+        master.close()
         sys.exit(response.exit_code)
 
-            
+
 if __name__ == "__main__":
     main()
