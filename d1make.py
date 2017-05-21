@@ -177,7 +177,8 @@ def main():
     hostnames = os.getenv("D1MAKE_HOSTS").split(" ")
     a = AnswerWithHost()
     hosts = dict()
-    ssh_ctl_path_root = tempfile.mktemp("-%n-%h", "ssh_ctl_path-")
+    ssh_ctl_path_root = os.getenv("D1MAKE_SSH_CTL_PATH",
+                                  tempfile.mktemp("-%h", "ssh_ctl_path-"))
     for host in hostnames:
         ssc = SSHServerConnection(host, a, ssh_ctl_path_root)
         hosts[host] = ssc
