@@ -33,6 +33,8 @@ class HostInfo(object):
 
     def remove_one(self):
         self.started = self.started - 1
+        if self.started < 0:
+            self.started = 0
 
     def value(self):
         return (self.count + self.min1 + self.min5 + self.min15
