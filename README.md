@@ -47,4 +47,5 @@ An explained sequence of events
 ## Some notes on the consequences of the implementation
 * The distribution of jobs will be attempted at the server with the lowest load based on the last reported load on the each of the hosts and the amount of running job to each of them. This means that if some other user runs a job on one of the hosts, this host will be less likely to be used until the other user's jobs is complete and his contribution to the load starts to drop.
 * The ssh connection between `d1make-client.py` and `d1make-client.py --remote` uses the same ssh connection as the one between `d1make.py` and `d1make-server.py` using the ssh ctl_path mechanism. If you don't use an ssh compatible with openssh in this respect, it will not work.
-* OpenSSH 7.2 (at least) seems to limit the amount of sessions using the same ctl_path to 9. This is a problem if the top session is run with -j > 9. The plan is to solve this by implementing a hard limit on the amount of sessions run per host.
+* OpenSSH 7.2 (at least) seems to limit the amount of sessions using the same ctl_path to 9. This is a problem if the top make is run with -j > 9 and they all happen to start against the same ssh session.
+
