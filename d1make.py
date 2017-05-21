@@ -70,10 +70,13 @@ class SSHServerConnection(threading.Thread):
                              stdin=PIPE,
                              stdout=PIPE,
         	             stderr=STDOUT)
+        self.running = True
         try:
             self.process.stdin.close()
-            while True:
+            while self.running:
                 line = self.process.stdout.readline().rstrip()
+                if not self.running:
+                    break
                 logging.debug("Read from " + self.host + ": " + line)
                 if line:
                     fifo, _, count, min1, min5, min15 = line.strip().split(" ")
@@ -82,17 +85,20 @@ class SSHServerConnection(threading.Thread):
                 else:
                     break
         except ValueError:
-            logging.error("Strange data from " + self.host + ": " + line)
+            logging.error("Strange data from " + self.host
+                          + " (ValueError): " + line)
             self.register.host_closed(self.host)
             self.process.terminate()
             for line in self.process.stdout.readlines():
-                logging.error("Strange data from " + self.host + ": " + line)
+                logging.error("Strange data from " + self.host
+                              + " (after ValueError): " + line)
         finally:
             self.process.kill()
         self.register.host_closed(self.host)
 
     def close(self):
         if self.process:
+            self.running = False
             self.process.terminate()
 
     def collect(self):
